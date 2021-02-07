@@ -1,12 +1,25 @@
 ;; https://docs.python.org/3/c-api/intro.html
 ;; https://github.com/iraikov/chicken-pyffi/blob/master/pyffi.scm
 
+
+
+
+
+
+
+
+;; TODO - TODO - TODO
+;; % to low-level procedures
+
+
 (define-library (cyclone python)
   (import (scheme base)
-          (scheme write)
-          (scheme cyclone util)
+          (only (scheme read) read-all)
+          (only (scheme write) display)
+          (only (scheme file) with-input-from-file)
+          (only (scheme cyclone util) string-split)
+          (only (srfi 1) filter take-while)
           (cyclone foreign)
-          (only (srfi 1) first second filter take-while)
           (srfi 69))
   (export ->string
 
@@ -14,7 +27,7 @@
           python-exception-string
 
           opaque?
-          null-opaque?
+          opaque-null?
           
           py-initialize
           py-finalize
@@ -73,16 +86,17 @@
 
           py-run-simple-string
           py-run-string
+          py-run-file
 
           py-string-from-c-string
           py-string-to-c-string
           py-string-to-c-string-and-size
           py-unicode-from-c-string
           py-unicode-to-c-string-and-size
-          py-unicode-ref
-          utf8-string->py-unicode
-          py-unicode->utf8-string
-          
+          string->py-unicode
+          py-unicode->string
+
+          ;; High-level
           py-start
           py-stop
           py-import
@@ -98,25 +112,28 @@
           py-define-attribute
           py-define-method)
   
-  (c-compiler-options "-I/usr/include/python3.8")
   (include-c-header "<Python.h>")
   (c-linker-options "-lpython3.8")
+  (c-compiler-options "-I/usr/include/python3.8")
+  ;; (c-linker-options "-lpython3.9")
+  ;; (c-compiler-options "-I/usr/include/python3.9")
+  
   (begin
     (define-c opaque?
       "(void *data, int argc, closure _, object k, object p)"
       "return_closcall1(data, k, Cyc_is_opaque(p));")
 
-    (define-c null-opaque?
+    (define-c opaque-null?
       "(void *data, int argc, closure _, object k, object p)"
       "Cyc_check_opaque(data, p);
        return_closcall1(data, k, make_boolean(opaque_ptr(p) == NULL));")
 
-    ;;; Foreign types
+;;; Foreign types
     (c-define-type py-object opaque scm->python python->scm)
     (c-define-type py-buffer opaque)
     (c-define-type py-ssize-t opaque)
 
-    ;;; Procedures
+;;; Procedures
     ;; Initialization and clean up
     (c-define py-initialize c-void "Py_Initialize")
     (c-define py-finalize c-void "Py_Finalize")
@@ -157,15 +174,6 @@
     (define (python-exception-string)
       (py-err-as-string))
 
-    (define (->string obj . rest)
-      (let ((str (open-output-string)))
-        (let loop ((objs (cons obj rest)))
-          (if (null? objs)
-              (get-output-string str)
-              (begin (display (car objs) str)
-                     (display " " str)
-                     (loop (cdr objs)))))))
-    
     (define (py-error x . rest)
       (error (->string "Python: " x (unless (null? rest) rest))))
 
@@ -249,38 +257,45 @@
     (c-define py-module-get-dict-as-ptr opaque "PyModule_GetDict" opaque)
     (c-define py-module-add-object int "PyModule_AddObject" opaque string opaque)
 
-
     ;; Evaluation
     (c-define py-run-simple-string c-void "PyRun_SimpleString" string)
     (c-define py-run-string opaque "PyRun_String" string int opaque opaque)
+
+    (define-c %py-run-file
+      "(void *data, int argc, closure _, object k, object f)"
+      "Cyc_check_str(data, f);
+       
+       FILE *fp = fopen(string_str(f), \"r\");
+       
+       if (fp == NULL) 
+         Cyc_rt_raise2(data, \"Could not open file\", f);
+
+       PyObject *res = PyRun_File(fp, string_str(f), Py_file_input, PyDict_New(), NULL);
+
+       fclose(fp);
+       make_c_opaque(r, res);
+
+       return_closcall1(data, k, &r);")
+
+    (define py-run-file %py-run-file)
 
     ;; Strings
     (c-define py-string-from-c-string opaque "PyUnicode_FromString" string)
     (c-define py-string-to-c-string string "PyUnicode_AsUTF8" py-object)
     (c-define py-string-to-c-string-and-size string "PyUnicode_AsUTF8AndSize" py-object py-ssize-t)
-    (c-define py-unicode-from-c-string opaque "PyUnicode_FromString" string)
-    (c-define py-unicode-to-c-string-and-size string "PyUnicode_AsUTF8AndSize" py-object py-ssize-t)
+    (define py-unicode-from-c-string py-string-from-c-string)
+    (define py-unicode-to-c-string-and-size py-string-to-c-string-and-size)
 
-    (define-c py-unicode-ref
-      "(void *data, int argc, closure _, object k, object x, object i)"
-      "Cyc_check_opaque(data, x);
-       Cyc_check_int(data, i);
-  
-       int *x_obj;
-       int j = obj_obj2int(i);
-
-       int result;
- 
-       if (j >= 0) {
-         x_obj = opaque_ptr(x);
-         result = x_obj[j];
-       }
-       else
-         result = 0;
-       
-       return_closcall1 (data, k, obj_int2obj(result));")  
+;;; Misc util procedures
+    (define (->string obj . rest)
+      (let ((str (open-output-string)))
+        (let loop ((objs (cons obj rest)))
+          (if (null? objs)
+              (get-output-string str)
+              (begin (display (car objs) str)
+                     (display " " str)
+                     (loop (cdr objs)))))))
     
-    ;;; Misc util procedures
     (define (hash-table-clear! ht)
       (map (lambda (k)
              (hash-table-delete! ht k))
@@ -292,39 +307,39 @@
       (let ((res (assoc elt alst)))
         (and res (cdr res))))
 
-    ;;; Internal Scheme <-> Python translation
-    (define-record-type pytype
-      (make-pytype name to from)
-      pytype?
-      (name pytype-name pytype-name!)
-      (to pytype-to pytype-to!)
-      (from pytype-from pytype-from!))
+;;; Internal Scheme <-> Python translation
+    (define-record-type py-type
+      (make-py-type name to from)
+      py-type?
+      (name py-type-name py-type-name!)
+      (to py-type-to py-type-to!)
+      (from py-type-from py-type-from!))
 
-    (define-syntax define-pytype
+    (define-syntax py-define-type
       (er-macro-transformer
        (lambda (x r c)
          (let ((%define (r 'define))
-               (%make-pytype (r 'make-pytype))
+               (%make-py-type (r 'make-py-type))
                (name (cadr x))
                (to   (caddr x))
                (from (cadddr x)))
-           `(,%define ,name (,%make-pytype ',name ,to ,from))))))
+           `(,%define ,name (,%make-py-type ',name ,to ,from))))))
 
     (define-syntax translate-to-foreign
       (er-macro-transformer
        (lambda (x r c)
-         (let ((%pytype-to (r 'pytype-to))
+         (let ((%py-type-to (r 'py-type-to))
                (x (cadr x))
                (typ (caddr x)))
-           `((,%pytype-to ,typ) ,x)))))
+           `((,%py-type-to ,typ) ,x)))))
 
     (define-syntax translate-from-foreign
       (er-macro-transformer
        (lambda (x r c)
-         (let ((%pytype-from (r 'pytype-from))
+         (let ((%py-type-from (r 'py-type-from))
                (x (cadr x))
                (typ (caddr x)))
-           `((,%pytype-from ,typ) ,x)))))
+           `((,%py-type-from ,typ) ,x)))))
 
     (define (scm->python value)
       (cond
@@ -351,116 +366,6 @@
                 (py-incref value)
                 value)))))
 
-    (define (py-object-type value)
-      (py-object-type-to-c-string value))
-
-    (define-pytype py-int py-long-from-long py-long-as-long)
-
-    (define-pytype py-tuple
-      (lambda (value)
-        (let* ((len (vector-length value))
-               (tup (py-tuple-new len)))
-          (if (not tup) (raise-python-exception))
-          (let loop ((i 0))
-            (if (< i len) 
-                (begin
-                  (if (not (zero? (py-tuple-set-item tup i (vector-ref value i))))
-                      (raise-python-exception))
-                  (loop (+ 1 i)))
-                tup))))
-      (lambda (value)
-        (let* ((len (py-tuple-size value))
-               (tup (make-vector len)))
-          (let loop ((i 0))
-            (if (< i len) 
-                (begin
-                  (vector-set! tup i (py-tuple-get-item value i))
-                  (loop (+ 1 i)))
-                tup)))))
-
-    (define-pytype py-list
-      (lambda (value)
-        (let* ((len (length value))
-               (lst (py-list-new len)))
-          (if (not lst) (raise-python-exception))
-          (let loop ((i 0))
-            (if (< i len)
-                (begin
-                  (if (not (zero? (py-list-set-item lst i (list-ref value i))))
-                      (raise-python-exception))
-                  (loop (+ i 1)))
-                lst))))
-      (lambda (value)
-        (let ((len (py-list-size value)))
-          (let loop ((i 0) (lst (list)))
-            (if (< i len)
-                (let ((item (py-list-get-item value i)))
-                  (loop (+ 1 i) (cons item lst)))
-                (begin
-                  (reverse lst)))))))
-
-    (define-pytype py-bool
-      (lambda (x) (py-bool-from-long (if x 1 0)))
-      py-bool-as-bool)
-
-    (define-pytype py-float py-float-from-double py-float-as-double)
-
-    (define (utf8-string->py-unicode value)
-      ;; Given a Scheme UTF8 string, converts it into Python Unicode string
-      (let ((res (py-unicode-from-c-string value)))
-        res))
-
-    (define (py-unicode->utf8-string value)
-      ;; Given a Python Unicode string, converts it into Scheme UTF8 string
-      (let ((res (py-string-to-c-string value)))
-        res))
-
-    (define-pytype py-ascii py-string-from-c-string py-string-to-c-string)
-    (define-pytype py-unicode utf8-string->py-unicode py-unicode->utf8-string)
-
-    (define-pytype py-dict 
-      ;; Given a Scheme alist, converts it into a Python dictionary
-      (lambda (value)
-        (let ((dct (py-dict-new)))
-          (if (not dct) (raise-python-exception))
-          (for-each
-           (lambda (kv)
-             (if (and (pair? kv) (pair? (cdr kv)))
-                 (let ((k (car kv)) (v (cadr kv)))
-                   (if (not (zero? (py-dict-set-item dct k v)))
-                       (raise-python-exception)))
-                 (py-error 'py-dict "invalid alist pair " kv)))
-           value)
-          dct))
-      ;; Given a Python dictionary, converts it into a Scheme alist
-      (lambda (value)
-        (let ((its (py-dict-items value)))
-          (let loop ((its its) (alst (list)))
-            (if (null? its) alst
-                (let ((item (car its)))
-                  (let ((k (vector-ref item 0))
-                        (v (vector-ref item 1)))
-                    (loop (cdr its) (cons (list k v) alst)))))))))
-
-    (define-pytype py-instance 
-      (lambda (x) x)
-      ;; Given a Python class instance, converts it into a Scheme alist
-      (lambda (value) (py-object-get-attr-string value "__dict__")))
-
-    ;; TODO - adapt
-    (define-pytype py-buffer 
-      ;; Given a Scheme blob, converts it into a Python buffer
-      (lambda (value)
-        (let ((buf (make-bytevector (bytevector-length value))))
-          (if (not buf) (raise-python-exception))
-          (py-buffer-from-contiguous buf value (bytevector-length value) #\C)
-          buf))
-      ;; Given a Python buffer, converts it into a Scheme blob
-      (lambda (value)
-        (let ((b (make-bytevector (py-buffer-size value))))
-          (py-buffer-to-contiguous b value (py-buffer-size value) #\C)
-          b)))
-
     (define *py-types*
       `(("<class 'bool'>"      . ,py-bool)
         ("<class 'int'>"       . ,py-int)
@@ -483,6 +388,116 @@
         ("<type 'instance'>"  . ,py-instance)
         ("<type 'tuple'>"     . ,py-tuple)
         ("<type 'buffer'>"    . ,py-buffer)))
+    
+    (define (py-object-type value)
+      (py-object-type-to-c-string value))
+    
+    (py-define-type py-int py-long-from-long py-long-as-long)
+
+    (py-define-type py-tuple
+                    (lambda (value)
+                      (let* ((len (vector-length value))
+                             (tup (py-tuple-new len)))
+                        (if (opaque-null? tup) (raise-python-exception))
+                        (let loop ((i 0))
+                          (if (< i len) 
+                              (begin
+                                (unless (zero? (py-tuple-set-item tup i (vector-ref value i)))
+                                  (raise-python-exception))
+                                (loop (+ 1 i)))
+                              tup))))
+                    (lambda (value)
+                      (let* ((len (py-tuple-size value))
+                             (tup (make-vector len)))
+                        (let loop ((i 0))
+                          (if (< i len) 
+                              (begin
+                                (vector-set! tup i (py-tuple-get-item value i))
+                                (loop (+ 1 i)))
+                              tup)))))
+
+    (py-define-type py-list
+                    (lambda (value)
+                      (let* ((len (length value))
+                             (lst (py-list-new len)))
+                        (if (opaque-null? lst) (raise-python-exception))
+                        (let loop ((i 0))
+                          (if (< i len)
+                              (begin
+                                (unless (zero? (py-list-set-item lst i (list-ref value i)))
+                                  (raise-python-exception))
+                                (loop (+ i 1)))
+                              lst))))
+                    (lambda (value)
+                      (let ((len (py-list-size value)))
+                        (let loop ((i 0) (lst (list)))
+                          (if (< i len)
+                              (let ((item (py-list-get-item value i)))
+                                (loop (+ 1 i) (cons item lst)))
+                              (begin
+                                (reverse lst)))))))
+
+    (py-define-type py-bool
+                    (lambda (x) (py-bool-from-long (if x 1 0)))
+                    py-bool-as-bool)
+
+    (py-define-type py-float py-float-from-double py-float-as-double)
+
+    (define (string->py-unicode value)
+      ;; Given a Scheme UTF8 string, converts it into Python Unicode string
+      (let ((res (py-unicode-from-c-string value)))
+        res))
+
+    (define (py-unicode->string value)
+      ;; Given a Python Unicode string, converts it into Scheme UTF8 string
+      (let ((res (py-string-to-c-string value)))
+        res))
+
+    (py-define-type py-ascii py-string-from-c-string py-string-to-c-string)
+    (py-define-type py-unicode string->py-unicode py-unicode->string)
+
+    (py-define-type py-dict 
+                    ;; Given a Scheme alist, converts it into a Python dictionary
+                    (lambda (value)
+                      (let ((dct (py-dict-new)))
+                        (if (not dct) (raise-python-exception))
+                        (for-each
+                         (lambda (kv)
+                           (if (and (pair? kv) (pair? (cdr kv)))
+                               (let ((k (car kv)) (v (cadr kv)))
+                                 (if (not (zero? (py-dict-set-item dct k v)))
+                                     (raise-python-exception)))
+                               (py-error 'py-dict "invalid alist pair " kv)))
+                         value)
+                        dct))
+                    ;; Given a Python dictionary, converts it into a Scheme alist
+                    (lambda (value)
+                      (let ((its (py-dict-items value)))
+                        (let loop ((its its) (alst (list)))
+                          (if (null? its) alst
+                              (let ((item (car its)))
+                                (let ((k (vector-ref item 0))
+                                      (v (vector-ref item 1)))
+                                  (loop (cdr its) (cons (list k v) alst)))))))))
+
+    (py-define-type py-instance 
+                    (lambda (x) x)
+                    ;; Given a Python class instance, converts it into a Scheme alist
+                    (lambda (value) (py-object-get-attr-string value "__dict__")))
+
+    ;; TODO - adapt
+    (py-define-type py-buffer 
+                    ;; Given a Scheme blob, converts it into a Python buffer
+                    (lambda (value)
+                      (let ((buf (make-bytevector (bytevector-length value))))
+                        (if (not buf) (raise-python-exception))
+                        (py-buffer-from-contiguous buf value (bytevector-length value) #\C)
+                        buf))
+                    ;; Given a Python buffer, converts it into a Scheme blob
+                    (lambda (value)
+                      (let ((b (make-bytevector (py-buffer-size value))))
+                        (py-buffer-to-contiguous b value (py-buffer-size value) #\C)
+                        b)))
 
     (define +py-file-input+    257)
     (define +py-single-input+  256)
@@ -492,7 +507,7 @@
     (define  *py-main-module-dict* (make-parameter #f))
     (define  *py-functions* (make-hash-table eq? hash))
 
-    ;;;; HIGH-LEVEL
+;;;; HIGH-LEVEL
     (define (py-start)
       (py-initialize)
       (*py-main-module* (py-import-add-module "__main__"))
@@ -500,7 +515,8 @@
       (py-incref (*py-main-module-dict*)))
 
     (define (py-stop)
-      (py-decref (*py-main-module-dict*))
+      (when (*py-main-module-dict*)
+        (py-decref (*py-main-module-dict*)))
       (*py-main-module* #f)
       (*py-main-module-dict* #f)
       (hash-table-clear! *py-functions*)
@@ -510,24 +526,22 @@
       (let* ((as (if (null? as) #f (car as)))
              (p (string-split name "."))
              (id (if (null? p) name (car p))))
-        (let ((m (py-import-import-module-ex name (*py-main-module-dict*) #f #f)))
-          (if m
-              (if (= -1 (py-module-add-object (*py-main-module*) id m))
-                  (begin
-                    (py-decref m)
-                    (raise-python-exception))
-                  (begin
-                    (if as
-                        (py-module-add-object (*py-main-module*) as m)
-                        (py-incref m))))
-              (raise-python-exception)))))
+        (let ((m (py-import-import-module-ex name (*py-main-module-dict*) (py-dict-new) '())))
+          (when (opaque-null? m)
+            (raise-python-exception))
+          (when (= -1 (py-module-add-object (*py-main-module*) id m))
+            (py-decref m)
+            (raise-python-exception))
+          (if as
+              (py-module-add-object (*py-main-module*) as m)
+              (py-incref m)))))
 
     (define (py-eval expr)
       (let ((res (py-run-string expr
                                 +py-eval-input+
                                 (*py-main-module-dict*)
                                 (py-dict-new))))
-        (if (null-opaque? res)
+        (if (opaque-null? res)
             (raise-python-exception)
             res)))
 
@@ -648,3 +662,26 @@
                ;;                     (,%list->vector (,%take-while (,%lambda (x) (,%not (,%symbol? x))) ,rest))
                ;;                     (,%if (,%null? kwargs) #f kwargs))))))
                ))))))))
+
+
+;; Unused
+
+;; (define-c py-unicode-ref
+;;   "(void *data, int argc, closure _, object k, object x, object i)"
+;;   "Cyc_check_opaque(data, x);
+;;    Cyc_check_int(data, i);
+
+;;    int *x_obj;
+;;    int j = obj_obj2int(i);
+
+;;    int result;
+
+;;    if (j >= 0) {
+;;      x_obj = opaque_ptr(x);
+;;      result = x_obj[j];
+;;    }
+;;    else
+;;      result = 0;
+
+;;    return_closcall1 (data, k, obj_int2obj(result));")      
+

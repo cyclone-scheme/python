@@ -60,14 +60,14 @@ This macro converts a Python object method into a Scheme procedure.
 
 The `name` can be a string or a list (not quoted) with a string (the Python method name) and a symbol (the Scheme name for the created procedure). `arg1` is optional. 
 
-The generated procedure is called with its object as a first parameter and has a rest parameter, so other arguments can be passed.
+The generated procedure is called with the method's parent object as the first parameter and has a rest parameter, so other arguments can be passed.
 
 See the [h5py.scm](https://github.com/cyclone-winds/python/blob/master/examples/h5py.scm) and [swriter.scm](https://github.com/cyclone-winds/python/blob/master/examples/swriter.scm) for examples.
 
 #### [syntax]   `(py-def-attribute name)`
 This macro converts a Python object attribute into a Scheme *procedure*. If you want to set the attribute into a variable, use `py-value` instead. 
 
-The generated procedure is called with its object as a first parameter. If a second parameter is given, the attribute is *set* to it.
+The generated procedure is called with the attribute's parent object as the first parameter. If a second parameter is given, the attribute is *set* to it.
 
 The `name` can be a string or a list (not quoted) containing a string (the Python attribute name) and a symbol (the Scheme name for the created procedure). `arg1` is optional. 
 
@@ -81,6 +81,7 @@ See [the examples directories](https://github.com/cyclone-scheme/cyclone-winds/w
 
 ## Author(s)
 Ivan Raikov
+
 Arthur Maciel
 
 ## Maintainer(s) 

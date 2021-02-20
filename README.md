@@ -80,9 +80,8 @@ This is the quickest form to retrieve Python values from module procedures or at
 See [the examples directories](https://github.com/cyclone-scheme/cyclone-winds/wiki/python/examples).
 
 ## Author(s)
-Ivan Raikov
-
-Arthur Maciel
+- Ivan Raikov
+- Arthur Maciel
 
 ## Maintainer(s) 
 Arthur Maciel

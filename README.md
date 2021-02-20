@@ -26,15 +26,15 @@ None
 None
 
 ## API 
-The API provides a set of high-level procedures and another with low-levelones. Only high-level procedures are documented here.
+The API provides a set of high-level procedures and another with low-level ones. Only high-level procedures are documented here.
 
 ### (cyclone python)
 
 #### [procedure]   `(py-start)`
-Mandatory to run all other procedures.
+Mandatory to run it **before** any other procedure from this package. Run only once.
 
 #### [procedure]   `(py-stop)`
-Mandatory to avoid memory leaking.
+Mandatory to run **after** any other procedure from this package to avoid memory leaking. Run only once.
 
 #### [procedure]   `(py-run-simple-string code)`
 This is the simplest way to run Python code. We can, for example, run:

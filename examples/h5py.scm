@@ -1,4 +1,4 @@
-;; Imported from https://github.com/iraikov/chicken-pyffi/blob/master/examples/h5py.scmp
+;; Imported from https://github.com/iraikov/chicken-pyffi/blob/master/examples/h5py.scm
 ;; Example from Python h5py documentation.
 ;;
 ;; This program is free software: you can redistribute it and/or
@@ -20,48 +20,27 @@
         (cyclone python)
         (srfi 69))
 
+;; Needs:
+;; $ pip install h5py
+
 (py-start)
-
 (py-import "h5py")
-(py-import "numpy")
 
-;; Define all 
-(py-define "h5py.File" name mode)
-(py-define-method "close" scheme-name: close) ;; File
-(py-define-method "create_dataset" name shape dtype) ;; File
-(py-define-attribute "name" Dataset.name)
-(py-define-attribute "shape" Dataset.shape)
-(py-define-attribute "dtype" Dataset.dtype)
+;; Define all procedures, methods and attributes
+(py-def ("h5py.File" h5py-create-file) name mode)
+(py-def-method ("close" close-file)) ;; File
+(py-def-method ("create_dataset" file-create-dataset) name shape dtype) ;; File
+(py-def-attribute ("name" dataset-name))
+(py-def-attribute ("shape" dataset-shape))
+(py-def-attribute ("dtype" dataset-dtype))
 
-(define f (h5py.File "mytestfile.hdf5" "w"))
+(define f (h5py-create-file "mytestfile.hdf5" "w"))
 
-(define dset (create_dataset f "mydataset"  (vector 100) "i"))
+(define dset (file-create-dataset f "mydataset"  (vector 100) "i"))
 
-(display (Dataset.name dset))
-(newline)
-(display (Dataset.shape dset))
-(newline)
-(display (Dataset.dtype dset))
-(newline)
+(display (dataset-name dset)) (newline)
+(display (dataset-shape dset)) (newline)
+(display (dataset-dtype dset)) (newline)
 
-(close f)
+(close-file f)
 (py-stop)
-;; (py-start)
-;; (py-import "prettytable")
-
-;; (py-define "prettytable.PrettyTable")
-
-;; (define x (prettytable.PrettyTable))
-
-;; (py-define-attribute "field_names")
-
-;; (field_names x '("City name" "Area" "Population" "Annual Rainfall"))
-
-
-;; (py-py-define-method "add_row" content)
-
-;; (add_row x '("Adelaide" "1295" "1158259" "600.5"))
-
-;; (display (py-object-type x))
-;; ;; (display (add_row x))
-;; (py-stop)

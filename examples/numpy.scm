@@ -4,22 +4,20 @@
         (cyclone python)
         (srfi 69))
 
-(py-start)
+;; Needs:
+;; $ pip install numpy
 
+(py-start)
 (py-import "numpy")
 
-(py-define "print" exp)
-(py-define "numpy.arange" n)
-(py-define "numpy.reshape" n x y)
-(py-define ("-" py-) a b)
+(py-def "print" exp)
+(py-def "numpy.arange" n)
 
 (define a (numpy.arange 15))
-(display (py-object-type a)) (newline)
+(display (%py-object-type a)) (newline)
 (print a)
 (define b (numpy.arange 12))
-(display (py-object-type b)) (newline)
-;; (print b)
-
-(print (py-eval "print(a-b)"))
+(display (%py-object-type b)) (newline)
+(print b)
 
 (py-stop)

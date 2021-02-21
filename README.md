@@ -47,10 +47,10 @@ This is the simplest way to run Python code. We can, for example, run:
 But note that this procedure does not return data. Use `py-value` or `py` bellow to get the return value in Scheme format.
 
 #### [procedure]   `(py-run-file file)`
-If we already have a Python project, we can use this procedure to run it. See the [run-file.scm](https://github.com/cyclone-winds/python/blob/master/examples/run-file.scm) example.
+If we already have a Python project, we can use this procedure to run it. See the [run-file.scm](https://github.com/cyclone-scheme/python/blob/master/examples/run-file.scm) example.
 
 #### [procedure]   `(py-value var)`
-Evaluates `var` and returns it. See the [test file](https://github.com/cyclone-winds/python/blob/master/test.scm) for example of usage.
+Evaluates `var` and returns it. See the [test file](https://github.com/cyclone-scheme/python/blob/master/test.scm) for example of usage.
 
 #### [syntax]   `(py-def name [arg1 ...])`
 This macro converts a Python procedure into a Scheme one. The `name` can be a string or a list (not quoted) with a string (the Python procedure name) and a symbol (the Scheme name for the procedure). `arg1` is optional. 
@@ -62,7 +62,7 @@ The `name` can be a string or a list (not quoted) with a string (the Python meth
 
 The generated procedure is called with the method's parent object as the first parameter and has a rest parameter, so other arguments can be passed.
 
-See the [h5py.scm](https://github.com/cyclone-winds/python/blob/master/examples/h5py.scm) and [swriter.scm](https://github.com/cyclone-winds/python/blob/master/examples/swriter.scm) for examples.
+See the [h5py.scm](https://github.com/cyclone-scheme/python/blob/master/examples/h5py.scm) and [swriter.scm](https://github.com/cyclone-scheme/python/blob/master/examples/swriter.scm) for examples.
 
 #### [syntax]   `(py-def-attribute name)`
 This macro converts a Python object attribute into a Scheme *procedure*. If you want to set the attribute into a variable, use `py-value` instead. 
@@ -71,13 +71,13 @@ The generated procedure is called with the attribute's parent object as the firs
 
 The `name` can be a string or a list (not quoted) containing a string (the Python attribute name) and a symbol (the Scheme name for the created procedure). `arg1` is optional. 
 
-See the [h5py.scm](https://github.com/cyclone-winds/python/blob/master/examples/h5py.scm) and [swriter.scm](https://github.com/cyclone-winds/python/blob/master/examples/swriter.scm) for examples.
+See the [h5py.scm](https://github.com/cyclone-scheme/python/blob/master/examples/h5py.scm) and [swriter.scm](https://github.com/cyclone-scheme/python/blob/master/examples/swriter.scm) for examples.
 
 #### [procedure]   `(py module procedure-or-attribute [arg1 ...])`
-This is the quickest form to retrieve Python values from module procedures or attributes. See the [test file](https://github.com/cyclone-winds/python/blob/master/test.scm) for example of usage.
+This is the quickest form to retrieve Python values from module procedures or attributes. See the [test file](https://github.com/cyclone-scheme/python/blob/master/test.scm) for example of usage.
 
 ## Examples
-See [the examples directories](https://github.com/cyclone-scheme/cyclone-winds/wiki/python/examples).
+See [the examples directories](https://github.com/cyclone-scheme/python/tree/master/examples).
 
 ## Author(s)
 - Ivan Raikov

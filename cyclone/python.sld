@@ -251,7 +251,7 @@
     (c-define %py-module-add-object int "PyModule_AddObject" opaque string opaque)
 
     ;; Evaluation
-    (c-define %py-run-simple-string c-void "PyRun_SimpleString" string)
+    (c-define %py-run-simple-string int "PyRun_SimpleString" string)
     (c-define %py-run-string opaque "PyRun_String" string int opaque opaque)
 
     (define-c %py-run-file

@@ -8,7 +8,7 @@
  (tags "FFI")
  (docs "https://github.com/cyclone-scheme/cyclone-winds/wiki/python")
  (test "test.scm")
- (dependencies ())
+ (dependencies (pathname))
  (test-dependencies ())
  (foreign-dependencies ())
  (library

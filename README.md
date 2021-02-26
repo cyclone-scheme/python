@@ -104,7 +104,7 @@ See [the examples directories](https://github.com/cyclone-scheme/python/tree/mas
 Arthur Maciel
 
 ## Version 
-0.1
+0.2
 
 ## License 
 BSD

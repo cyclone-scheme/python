@@ -2,9 +2,11 @@
 ;; https://github.com/iraikov/chicken-pyffi/blob/master/pyffi.scm
 (define-library (cyclone python)
   (import (scheme base)
+          (scheme eval)
           (only (scheme write) display)
           (only (scheme cyclone util) string-split)
           (cyclone foreign)
+          (cyclone pathname)
           (srfi 69))
   (export
    ;; High-level
@@ -105,12 +107,37 @@
 
    %scm->python
    %python->scm)
-  
-  (include-c-header "<Python.h>")
-  (c-linker-options "-lpython3.8")
-  (c-compiler-options "-I/usr/include/python3.8")
-  ;; (c-linker-options "-lpython3.9")
-  ;; (c-compiler-options "-I/usr/include/python3.9")
+
+  (cond-expand
+   (cyclone
+    (include-c-header "<Python.h>")
+    (define-syntax include-path
+      (er-macro-transformer
+       (lambda (expr rename compare)
+         (eval `(import (cyclone io popen)))
+         (eval `(import (cyclone pathname)))
+         (apply string-append
+                "-I"
+                (eval `(begin
+                         (define paths (read-lines-from-pipe "locate Python.h"))
+                         (define latest-version-path (car (reverse paths)))
+                         (list (path-directory latest-version-path))))))))
+
+    (c-compiler-options (include-path))
+
+    (define-syntax library-name
+      (er-macro-transformer
+       (lambda (expr rename compare)
+         (eval `(import (cyclone io popen)))
+         (eval `(import (cyclone pathname)))
+         (apply string-append
+                "-l"
+                (eval `(begin
+                         (define paths (read-lines-from-pipe "locate Python.h"))
+                         (define latest-version-path (car (reverse paths)))
+                         (list (path-strip-directory latest-version-path))))))))
+
+    (c-linker-options (library-name))))
   
   (begin
     (define-c opaque?

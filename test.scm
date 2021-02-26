@@ -13,8 +13,8 @@
 (test-group "py-value"
   (test 3.14159265358979 (py-value "math.pi")))
 
-(test-group "py"
-  (test 3.14159265358979 (py "math" "pi")))
+(test-group "py-call"
+  (test 3.14159265358979 (py-call "math" "pi")))
 
 (test-group "py-def"
   (py-def "math.floor" n)

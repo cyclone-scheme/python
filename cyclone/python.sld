@@ -8,6 +8,7 @@
           (srfi 69))
   (export
    ;; High-level
+   with-python
    py-start
    py-stop
 
@@ -19,14 +20,17 @@
    py-def
    py-def-attribute
    py-def-method
-   py
+   py-call
 
    ;; Misc
    ->string
    
    ;; Low-level
+   %py-is-initialized
+   %initialized?
    %py-initialize
    %py-finalize
+   %with-initialization-check
 
    %py-incref
    %py-decref
@@ -125,9 +129,18 @@
 
 ;;; Procedures
     ;; Initialization and clean up
+    (c-define %py-is-initialized int "Py_IsInitialized")
+    (define (%initialized?) (not (= 0 (%py-is-initialized))))
     (c-define %py-initialize c-void "Py_Initialize")
     (c-define %py-finalize c-void "Py_Finalize")
 
+    (define-syntax %with-initialization-check
+      (syntax-rules ()
+        ((_ rest ...)
+         (if (%initialized?)
+             (begin rest ...)
+             (%py-error "Please run (py-start) first")))))
+    
     ;; Reference counting
     (c-define %py-incref c-void "Py_IncRef" opaque)
     (c-define %py-decref c-void "Py_DecRef" opaque)
@@ -481,6 +494,16 @@
     (define  *py-functions* (make-hash-table eq? hash))
 
 ;;; High-level
+    (define-syntax with-python
+      (syntax-rules ()
+        ((_ rest ...)
+         (begin
+           (py-start)
+           (let ((result
+                  (begin rest ...)))
+             (py-stop)
+             result)))))
+    
     (define (py-start)
       (%py-initialize)
       (*py-main-module* (%py-import-add-module "__main__"))
@@ -496,35 +519,40 @@
       (%py-finalize))
 
     (define (py-import name . as)
-      (let* ((as (if (null? as) #f (car as)))
-             (p (string-split name "."))
-             (id (if (null? p) name (car p))))
-        (let ((m (%py-import-module-ex name (*py-main-module-dict*) (%py-dict-new) '())))
-          (when (opaque-null? m)
-            (%raise-python-exception))
-          (when (= -1 (%py-module-add-object (*py-main-module*) id m))
-            (%py-decref m)
-            (%raise-python-exception))
-          (if as
-              (when (= -1 (%py-module-add-object (*py-main-module*) as m))
-                (%py-decref m)
-                (%raise-python-exception))
-              (%py-incref m)))))
+      (%with-initialization-check
+       (let* ((as (if (null? as) #f (car as)))
+              (p (string-split name "."))
+              (id (if (null? p) name (car p))))
+         (let ((m (%py-import-module-ex name (*py-main-module-dict*) (%py-dict-new) '())))
+           (when (opaque-null? m)
+             (%raise-python-exception))
+           (when (= -1 (%py-module-add-object (*py-main-module*) id m))
+             (%py-decref m)
+             (%raise-python-exception))
+           (if as
+               (when (= -1 (%py-module-add-object (*py-main-module*) as m))
+                 (%py-decref m)
+                 (%raise-python-exception))
+               (%py-incref m))))))
 
     (define (py-run-simple-string code)
-      (when (= -1 (%py-run-simple-string code))
-        (%raise-python-exception)))
+      (%with-initialization-check
+       (when (= -1 (%py-run-simple-string code))
+         (%raise-python-exception))))
 
     (define (py-run-file file)
-      (when (opaque-null? (%py-run-file file))
-        (%raise-python-exception)))
+      (%with-initialization-check
+       (when (opaque-null? (%py-run-file file))
+         (%raise-python-exception))))
     
     (define (py-value var)
-      (let ((name (if (string? var)
-                      var
-                      (symbol->string var))))
-        (%python->scm (%py-eval name))))
+      (%with-initialization-check
+       (let ((name (if (string? var)
+                       var
+                       (symbol->string var))))
+         (%python->scm (%py-eval name)))))
 
+    
     ;; Functional helper macros
     ;; Accepted signatures for py-def, py-def-method and py-def-attr:
     ;; (py-def "math.floor" ...) ;; string
@@ -604,12 +632,13 @@
                             (,py-object-set-attr-string ,obj ,attr
                                                         (,%car ,rest))))))))
     
-    (define (py obj meth-or-attr . args)
-      (let ((params (if (null? args) #f args))
-            (form (%py-eval (string-append (->string obj) "." (->string meth-or-attr)))))
-        (if params
-            (apply %py-apply (cons form params))
-            (%python->scm form))))))
+    (define (py-call obj meth-or-attr . args)
+      (%with-initialization-check
+       (let ((params (if (null? args) #f args))
+             (form (%py-eval (string-append (->string obj) "." (->string meth-or-attr)))))
+         (if params
+             (apply %py-apply (cons form params))
+             (%python->scm form)))))))
 
 ;;; For future development
 ;; From: https://stackoverflow.com/questions/3210238/how-do-i-get-list-of-all-python-types-programmatically

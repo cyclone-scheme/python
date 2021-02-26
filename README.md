@@ -73,8 +73,25 @@ The `name` can be a string or a list (not quoted) containing a string (the Pytho
 
 See the [h5py.scm](https://github.com/cyclone-scheme/python/blob/master/examples/h5py.scm) and [swriter.scm](https://github.com/cyclone-scheme/python/blob/master/examples/swriter.scm) for examples.
 
-#### [procedure]   `(py module procedure-or-attribute [arg1 ...])`
+#### [procedure]   `(py-call module procedure-or-attribute [arg1 ...])`
 This is the quickest form to retrieve Python values from module procedures or attributes. See the [test file](https://github.com/cyclone-scheme/python/blob/master/test.scm) for example of usage.
+
+#### [syntax]   `(with-python command1 ...)`
+A wrapper around the high-level commands above that runs `(py-start)` and `(py-stop)` automatically.
+
+```Scheme
+(with-python
+ (py-import "math")
+ (py-value "math.pi"))
+```
+
+is equivalent to
+```Scheme
+(py-start)
+(py-import "math")
+(py-value "math.pi")
+(py-stop)
+```
 
 ## Examples
 See [the examples directories](https://github.com/cyclone-scheme/python/tree/master/examples).

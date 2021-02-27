@@ -8,7 +8,7 @@
 (py-import "math")
 
 (test-group "%py-eval"
-  (test 2 (python->scm (%py-eval "1+1"))))
+  (test 2 (%python->scm (%py-eval "1+1"))))
 
 (test-group "py-value"
   (test 3.14159265358979 (py-value "math.pi")))

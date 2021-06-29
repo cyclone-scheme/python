@@ -1,6 +1,6 @@
 (package
  (name python)
- (version 0.2)
+ (version "0.2.0")
  (license "BSD")
  (authors "Ivan Raikov" "Arthur Maciel")
  (maintainers "Arthur Maciel")

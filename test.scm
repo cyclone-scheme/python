@@ -1,5 +1,4 @@
 (import (scheme base)
-        (scheme write)
         (cyclone test)
         (cyclone python)
         (srfi 69))
@@ -21,4 +20,3 @@
   (test 3 (math.floor 3.14159265358979)))
 
 (py-stop)
-

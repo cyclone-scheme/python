@@ -8,7 +8,7 @@
           (cyclone foreign)
           (cyclone pathname)
           (srfi 69))
-  (include-c-header "<Python.h>")
+  (include-c-header "Python.h")
   (c-compiler-options "`python3-config --includes`")
   (c-linker-options "`python3-config --includes | awk  '{print $1}' | sed 's/^.*\\//-l/'`")
 

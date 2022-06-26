@@ -14,10 +14,17 @@
 - [Tags](#Tags) 
 
 ## Intro 
+This package provides an experimental interface to Python 3, based on [Ivan
+Raikov's package](https://github.com/iraikov/chicken-pyffi) for CHICKEN Scheme.
 
 
 ## Dependencies 
-None
+None from Cyclone, but it needs `python3-dev` or similar. In `Debian Linux`
+you should run:
+
+```shell
+$ sudo apt install python3-dev
+```
 
 ## Test-dependencies 
 None
@@ -104,7 +111,7 @@ See [the examples directories](https://github.com/cyclone-scheme/python/tree/mas
 Arthur Maciel
 
 ## Version 
-"0.2.0"
+"0.3.0"
 
 ## License 
 BSD
